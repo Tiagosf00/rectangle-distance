@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Draggable Rectangles Distance</title>
+  <style>
+    body { margin: 0; overflow: hidden; }
+    canvas { display: block; background: #f0f0f0; }
+    #info {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      font-family: sans-serif;
+      background: rgba(255,255,255,0.8);
+      padding: 10px;
+      border-radius: 4px;
+      font-size: 24px;
+      font-weight: bold;
+    }
+    #distance {
+      font-size: 1.2em;
+    }
+  </style>
+</head>
+<body>
+  <canvas id="canvas"></canvas>
+  <div id="info">Distance: <span id="distance">0</span></div>
+
+  <script>
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+    const infoDist = document.getElementById('distance');
+    const highlightColor = 'rgba(255, 99, 132, 0.7)';
+
+    function resizeCanvas() {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+      draw();
+    }
+    window.addEventListener('resize', resizeCanvas);
+
+    function Rect(x, y, w, h, color) {
+      this.x = x;
+      this.y = y;
+      this.w = w;
+      this.h = h;
+      this.color = color;
+    }
+    Rect.prototype.draw = function(ctx) {
+      ctx.fillStyle = this.color;
+      ctx.fillRect(this.x, this.y, this.w, this.h);
+    };
+
+    function computeDistanceAndPoints(A, B) {
+      const leftA = A.x, rightA = A.x + A.w;
+      const topA = A.y, bottomA = A.y + A.h;
+      const leftB = B.x, rightB = B.x + B.w;
+      const topB = B.y, bottomB = B.y + B.h;
+      const dx = Math.max(0, Math.max(leftB - rightA, leftA - rightB));
+      const dy = Math.max(0, Math.max(topB - bottomA, topA - bottomB));
+      const dist = Math.hypot(dx, dy);
+      if (dist === 0) return { dist, pA: null, pB: null };
+      const cxA = (leftA + rightA) / 2, cyA = (topA + bottomA) / 2;
+      const cxB = (leftB + rightB) / 2, cyB = (topB + bottomB) / 2;
+      let pA = {}, pB = {};
+      if (dx > 0 && dy > 0) {
+        pA.x = cxA < cxB ? rightA : leftA;
+        pA.y = cyA < cyB ? bottomA : topA;
+        pB.x = cxA < cxB ? leftB : rightB;
+        pB.y = cyA < cyB ? topB : bottomB;
+      } else if (dx > 0) {
+        pA.x = cxA < cxB ? rightA : leftA;
+        pA.y = cyB < topA ? topA : (cyB > bottomA ? bottomA : cyB);
+        pB.x = cxA < cxB ? leftB : rightB;
+        pB.y = pA.y;
+      } else {
+        pA.y = cyA < cyB ? bottomA : topA;
+        pA.x = cxB < leftA ? leftA : (cxB > rightA ? rightA : cxB);
+        pB.y = cyA < cyB ? topB : bottomB;
+        pB.x = pA.x;
+      }
+      return { dist, pA, pB };
+    }
+
+    const rectA = new Rect(100, 100, 150, 100, 'rgba(100,150,255,0.8)');
+    const rectB = new Rect(400, 300, 120, 180, 'rgba(100,200,255,0.8)');
+    const rects = [rectA, rectB];
+
+    let dragging = null;
+    let offsetX = 0, offsetY = 0;
+
+    canvas.addEventListener('mousedown', e => {
+      const rect = canvas.getBoundingClientRect();
+      const mx = e.clientX - rect.left, my = e.clientY - rect.top;
+      for (let i = rects.length - 1; i >= 0; i--) {
+        const r = rects[i];
+        if (mx >= r.x && mx <= r.x + r.w && my >= r.y && my <= r.y + r.h) {
+          dragging = r;
+          offsetX = mx - r.x;
+          offsetY = my - r.y;
+          break;
+        }
+      }
+    });
+    window.addEventListener('mousemove', e => {
+      if (!dragging) return;
+      const rect = canvas.getBoundingClientRect();
+      dragging.x = e.clientX - rect.left - offsetX;
+      dragging.y = e.clientY - rect.top - offsetY;
+      draw();
+    });
+    window.addEventListener('mouseup', () => dragging = null);
+
+    function draw() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      rects.forEach(r => r.draw(ctx));
+      const { dist, pA, pB } = computeDistanceAndPoints(rectA, rectB);
+      infoDist.textContent = dist.toFixed(2);
+      if (dist > 0) {
+        ctx.strokeStyle = highlightColor;
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(pA.x, pA.y);
+        ctx.lineTo(pB.x, pB.y);
+        ctx.stroke();
+      }
+    }
+
+    resizeCanvas();
+  </script>
+</body>
+</html>
